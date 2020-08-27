@@ -40,14 +40,6 @@ int start_server()
 	return socket_listen;
 }
 
-struct ccs_client {
-	SOCKET client_socket;
-	char* client_name;
-	time_t start_time;
-	time_t end_time;
-	ccs_client* next;
-};
-
 struct ccs_client* client_head;
 struct ccs_client* client_tail;
 
@@ -100,7 +92,7 @@ int main()
 							address_buffer, sizeof(address_buffer), 0, 0, 
 							NI_NUMERICHOST);
 					printf("New connection from %s\n", address_buffer);
-					const char* init_msg = "Enter your name: ";
+					const char* init_msg = "GET\nClient-Info: client_name";
 					if (send(socket_client, init_msg, strlen(init_msg), 0) < 0) {
 						fprintf(stderr, "send() failed. (%d)\n", GETSOCKETERRNO());
 						return 1;
@@ -123,6 +115,7 @@ int main()
 						CLOSESOCKET(i);
 						continue;
 					}
+					printf("%.*s\n", bytes_received, read);
 				}
 			} //if FD_ISSET
 		} //for i to max_socket

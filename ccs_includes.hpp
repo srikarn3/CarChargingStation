@@ -14,3 +14,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+struct ccs_client {
+	SOCKET client_socket;
+	char* client_name;
+	time_t start_time;
+	time_t end_time;
+	ccs_client* next;
+};
