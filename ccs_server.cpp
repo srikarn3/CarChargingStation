@@ -40,12 +40,96 @@ int start_server()
 	return socket_listen;
 }
 
-struct ccs_client* client_head;
-struct ccs_client* client_tail;
+ccs_client* client_head;
+ccs_client* client_tail;
 
-void* request_client_info(void* client)
+void print_client(ccs_client* temp_client)
 {
-	return NULL;
+	printf("%d: %s\n", 
+		temp_client->client_socket,
+		temp_client->client_name);
+}
+
+void print_all_clients()
+{
+	ccs_client* temp = client_head;
+	while (temp != NULL) {
+		print_client(temp);
+		temp = temp->next;
+	}
+}
+
+void add_new_client(SOCKET socket_peer)
+{
+	ccs_client* new_client = (ccs_client*) malloc(sizeof(ccs_client));
+	new_client->client_socket = socket_peer;
+	new_client->client_name = NULL;
+	new_client->next = NULL;
+
+	if (client_head == NULL) {
+		client_head = new_client;
+		client_tail = new_client;
+	} else {
+		client_tail->next = new_client;
+		client_tail = new_client;
+	}
+}
+
+void free_client(SOCKET socket_peer)
+{
+	ccs_client* temp = client_head;
+	ccs_client* prev = NULL;
+	while (temp->client_socket != socket_peer) {
+		prev = temp;
+		temp = temp->next;
+	}
+	if (temp == client_head) {
+		client_head = temp->next;
+	} else if (temp->next == client_tail) {
+		client_tail = prev;
+	} else {
+		prev->next = temp->next;
+	}
+	free(temp->client_name);
+	free(temp);
+}
+
+ccs_client* find_client(SOCKET socket_peer)
+{
+	ccs_client* temp = client_head;
+	while (temp != NULL && temp->client_socket != socket_peer) {
+		temp = temp->next;
+	}
+	return temp;
+}
+
+int handle_message(char* message, int bytes_received, SOCKET socket_peer)
+{
+	int p;
+	ccs_client* temp = find_client(socket_peer);
+	if (strncmp(message, "POST\r\n", strlen("POST\r\n")) == 0) {
+		p = (int) (strlen("POST\r\n"));
+		message += p;
+		if (strncmp(message, "Client-Info: ", strlen("Client-Info: ")) == 0) {
+			p = (int) (strlen("Client-Info: "));
+			message += p;
+			if (strncmp(message, "client_name: ", strlen("client_name: ")) == 0) {
+				p = (int) (strlen("client_name: "));
+				message += p;
+				temp->client_name = (char*) malloc(sizeof(char) * 1024);
+				char* name_end = strstr(message, "\r\n");
+				strncpy(temp->client_name, message, name_end - message);
+				message = name_end + 2;
+			}
+		}
+	} else if (strncmp(message, "GET\r\n", strlen("GET\r\n")) == 0) {
+
+	} else {
+		message++;
+	}
+	printf("Finished handling.\n");
+	print_all_clients();
+	return 0;
 }
 
 int main()
@@ -92,14 +176,15 @@ int main()
 							address_buffer, sizeof(address_buffer), 0, 0, 
 							NI_NUMERICHOST);
 					printf("New connection from %s\n", address_buffer);
-					const char* init_msg = "GET\nClient-Info: client_name";
+					add_new_client(socket_client);
+					const char* init_msg = "GET\r\nClient-Info: client_name\r\n";
 					if (send(socket_client, init_msg, strlen(init_msg), 0) < 0) {
 						fprintf(stderr, "send() failed. (%d)\n", GETSOCKETERRNO());
 						return 1;
 					}
 				} else {
-					char read[1024];
-					int bytes_received = recv(i, read, 1024, 0);
+					char recv_message[1024];
+					int bytes_received = recv(i, recv_message, 1024, 0);
 					if (bytes_received < 1) {
 						struct sockaddr_storage client_address;
 						socklen_t client_len = sizeof(client_address);
@@ -111,11 +196,13 @@ int main()
 								address_buffer, sizeof(address_buffer), 0, 0, 
 								NI_NUMERICHOST);
 						printf("Closing connection with %s\n", address_buffer);
+						free_client(i);
 						FD_CLR(i, &master);
 						CLOSESOCKET(i);
+						print_all_clients();
 						continue;
 					}
-					printf("%.*s\n", bytes_received, read);
+					handle_message(recv_message, bytes_received, i);
 				}
 			} //if FD_ISSET
 		} //for i to max_socket

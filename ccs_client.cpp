@@ -24,7 +24,7 @@
 
 #include "ccs_includes.hpp"
 
-struct ccs_client self_info;
+ccs_client self_info;
 
 int connect_to_server(int argc, char *argv[])
 {
@@ -88,15 +88,15 @@ int handle_message(char* message, int bytes_received, SOCKET socket_peer)
 {
 	int p;
 	char send_message[4096];
-	if (strncmp(message, "GET\n", strlen("GET\n")) == 0) {
-		p = (int) (strlen("GET\n"));
+	if (strncmp(message, "GET\r\n", strlen("GET\r\n")) == 0) {
+		p = (int) (strlen("GET\r\n"));
 		message += p;
 		while (*message != 0) {
 			if (strncmp(message, "Client-Info: ", strlen("Client-Info: ")) == 0) {
 				p = (int) (strlen("Client-Info: "));
 				message += p;
-				if (strncmp(message, "client_name", strlen("client_name")) == 0) {
-					p = (int) (strlen("client_name"));
+				if (strncmp(message, "client_name\r\n", strlen("client_name\r\n")) == 0) {
+					p = (int) (strlen("client_name\r\n"));
 					message += p;
 					printf("Enter your name: ");
 					self_info.client_name = (char*) malloc(sizeof(char) * 1024);
@@ -104,7 +104,7 @@ int handle_message(char* message, int bytes_received, SOCKET socket_peer)
 						exit(1);
 					}
 					self_info.client_name[strlen(self_info.client_name) - 1] = 0;
-					sprintf(send_message, "POST\nClient-Info: client_name: %s", self_info.client_name);
+					sprintf(send_message, "POST\r\nClient-Info: client_name: %s\r\n", self_info.client_name);
 					int bytes_sent = send(socket_peer, send_message, strlen(send_message), 0);
 					printf("Sent (%d bytes).\n", bytes_sent);
 				}
